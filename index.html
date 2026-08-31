@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Informasi ASN Sekretariat Daerah</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Library SheetJS untuk Export Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar for table */
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen text-gray-800 flex flex-col">
+
+    <!-- Toast Container untuk notifikasi -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Halaman Login -->
+    <div id="login-view" class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-blue-700 to-indigo-900 min-h-screen">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-blue-600 p-6 text-center">
+                <i class="fa-solid fa-building-user text-4xl text-white mb-2"></i>
+                <h1 class="text-2xl font-bold text-white">Portal Admin Setda</h1>
+                <p class="text-blue-100 text-sm mt-1">Sistem Informasi Data ASN</p>
+            </div>
+            <div class="p-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-6 text-center">Silakan Masuk</h2>
+                <form id="login-form" class="space-y-5">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-user text-gray-400"></i>
+                            </div>
+                            <input type="text" id="username" class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Masukkan username" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="password" class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Masukkan password" required>
+                        </div>
+                    </div>
+                    <div id="login-error" class="text-red-500 text-sm hidden font-medium text-center">Username atau Password salah!</div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-md transition-colors duration-200 flex justify-center items-center gap-2">
+                        <span>Masuk</span>
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    </button>
+                    <p class="text-xs text-gray-400 text-center mt-4">Bagian Umum Sekretariat Daerah Kab.HSU</p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Halaman Dashboard -->
+    <div id="dashboard-view" class="hidden flex-col min-h-screen">
+        <!-- Navbar -->
+        <nav class="bg-blue-700 text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-building-user text-2xl"></i>
+                        <span class="font-bold text-lg md:text-xl tracking-wide">Data ASN Setda</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="hidden md:flex items-center gap-2 text-sm text-blue-100 bg-blue-800 px-3 py-1.5 rounded-full">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <span>Admin Mode</span>
+                        </div>
+                        <button onclick="handleLogout()" class="text-blue-100 hover:text-white hover:bg-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span class="hidden sm:inline">Keluar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Daftar Pegawai</h2>
+                    <p class="text-gray-500 text-sm">Kelola data Aparatur Sipil Negara di lingkungan Sekretariat Daerah.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <button onclick="openModal()" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg shadow font-medium transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Tambah ASN
+                    </button>
+                    <button onclick="exportToExcel()" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg shadow font-medium transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-excel"></i> Unduh Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Data Card -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 flex flex-col md:flex-row gap-4 items-end">
+                <div class="w-full md:w-1/3">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Pencarian</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="filter-search" class="pl-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all" placeholder="Cari Nama, NIP, atau Jabatan...">
+                    </div>
+                </div>
+                <div class="w-full md:w-1/4">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Jenis ASN</label>
+                    <select id="filter-jenis" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white cursor-pointer">
+                        <option value="">Semua Jenis</option>
+                        <option value="PNS">PNS</option>
+                        <option value="PPPK">PPPK</option>
+                        <option value="PPPK Paruh Waktu">PPPK Paruh Waktu</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-1/3">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Bagian / Unit Kerja</label>
+                    <select id="filter-bagian" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white cursor-pointer">
+                        <option value="">Semua Bagian</option>
+                        <option value="Sekretariat Daerah">Sekretariat Daerah</option>
+                        <option value="Bagian Umum">Bagian Umum</option>
+                        <option value="Bagian Hukum">Bagian Hukum</option>
+                        <option value="Bagian Organisasi">Bagian Organisasi</option>
+                        <option value="Bagian Administrasi Pembangunan">Bagian Administrasi Pembangunan</option>
+                        <option value="Bagian Pengadaan Barang dan Jasa">Bagian Pengadaan Barang dan Jasa</option>
+                        <option value="Bagian Protokol dan Komunikasi Pimpinan">Bagian Protokol dan Komunikasi Pimpinan</option>
+                        <option value="Bagian Perekonomian">Bagian Perekonomian</option>
+                        <option value="Bagian Kesejahteraan Rakyat">Bagian Kesejahteraan Rakyat</option>
+                        <option value="Bagian Pemerintahan">Bagian Pemerintahan</option>
+                    </select>
+                </div>
+                <div class="w-full md:w-auto">
+                    <button onclick="resetFilters()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors text-sm flex items-center justify-center gap-2 border border-gray-200" title="Reset Filter">
+                        <i class="fa-solid fa-rotate-right"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="table-container overflow-x-auto relative">
+                    <!-- Loading Indicator -->
+                    <div id="loading-indicator" class="hidden absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+                        <i class="fa-solid fa-circle-notch fa-spin text-blue-600 text-3xl"></i>
+                    </div>
+
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs tracking-wider font-semibold">
+                                <th class="p-4 w-12 text-center">No</th>
+                                <th class="p-4">Nama Pegawai</th>
+                                <th class="p-4">NIP / NI PPPK</th>
+                                <th class="p-4">Jenis ASN</th>
+                                <th class="p-4">Pangkat/Golongan</th>
+                                <th class="p-4">Jabatan</th>
+                                <th class="p-4">Bagian</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-gray-200 text-sm">
+                            <!-- Data akan dimuat dari API -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Empty State -->
+                <div id="empty-state" class="hidden flex-col items-center justify-center py-12 px-4 text-center">
+                    <div class="bg-gray-100 p-4 rounded-full mb-3 text-gray-400">
+                        <i class="fa-solid fa-folder-open text-3xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900" id="empty-title">Belum ada data</h3>
+                    <p class="text-gray-500 text-sm max-w-sm mt-1" id="empty-desc">Data ASN kosong. Silakan klik tombol "Tambah ASN" untuk mulai menambahkan data.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Tambah/Edit Data -->
+    <div id="form-modal" class="hidden fixed inset-0 z-40 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-full scale-95 opacity-0 transition-all duration-300">
+            <div class="flex justify-between items-center p-5 border-b border-gray-200 bg-gray-50">
+                <h3 class="text-lg font-bold text-gray-800" id="modal-title">Tambah Data ASN</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto">
+                <form id="asn-form" class="space-y-4">
+                    <input type="hidden" id="edit-id">
+                    
+                    <div>
+                        <label for="nama" class="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                        <input type="text" id="nama" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Cth: Muhammad Wahidin Noor, S.Kom" required>
+                    </div>
+
+                    <div>
+                        <label for="jenis_asn" class="block text-sm font-medium text-gray-700 mb-1">Jenis ASN</label>
+                        <select id="jenis_asn" onchange="handleJenisAsnChange()" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white" required>
+                            <option value="">-- Pilih Jenis ASN --</option>
+                            <option value="PNS">PNS</option>
+                            <option value="PPPK">PPPK</option>
+                            <option value="PPPK Paruh Waktu">PPPK Paruh Waktu</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="nip" id="label-nip" class="block text-sm font-medium text-gray-700 mb-1">NIP (Nomor Induk Pegawai)</label>
+                        <input type="text" id="nip" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Nomor Induk" required>
+                    </div>
+                    
+                    <div>
+                        <label for="golongan" class="block text-sm font-medium text-gray-700 mb-1">Pangkat/Golongan</label>
+                        <select id="golongan" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white" required>
+                            <option value="">-- Pilih Pangkat/Golongan --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="jabatan" class="block text-sm font-medium text-gray-700 mb-1">Jabatan</label>
+                        <input type="text" id="jabatan" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Cth: Analis Kepegawaian" required>
+                    </div>
+
+                    <div>
+                        <label for="bagian" class="block text-sm font-medium text-gray-700 mb-1">Bagian / Unit Kerja</label>
+                        <select id="bagian" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white" required>
+                            <option value="">-- Pilih Bagian --</option>
+                            <option value="Sekretariat Daerah">Sekretariat Daerah</option>
+                            <option value="Bagian Umum">Bagian Umum</option>
+                            <option value="Bagian Hukum">Bagian Hukum</option>
+                            <option value="Bagian Organisasi">Bagian Organisasi</option>
+                            <option value="Bagian Administrasi Pembangunan">Bagian Administrasi Pembangunan</option>
+                            <option value="Bagian Pengadaan Barang dan Jasa">Bagian Pengadaan Barang dan Jasa</option>
+                            <option value="Bagian Protokol dan Komunikasi Pimpinan">Bagian Protokol dan Komunikasi Pimpinan</option>
+                            <option value="Bagian Perekonomian">Bagian Perekonomian</option>
+                            <option value="Bagian Kesejahteraan Rakyat">Bagian Kesejahteraan Rakyat</option>
+                            <option value="Bagian Pemerintahan">Bagian Pemerintahan</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors shadow-sm">
+                    Batal
+                </button>
+                <button type="button" id="btn-simpan" onclick="saveData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-save"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Hapus -->
+    <div id="delete-modal" class="hidden fixed inset-0 z-50 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+                <i class="fa-solid fa-triangle-exclamation text-3xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Hapus Data ASN?</h3>
+            <p class="text-sm text-gray-500 mb-6">Data yang dihapus tidak dapat dikembalikan. Apakah Anda yakin?</p>
+            <div class="flex justify-center gap-3">
+                <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors">Batal</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors flex items-center gap-2">Ya, Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SESSION_KEY = 'asn_setda_logged_in'; 
+        // SET URL API PHP ANDA DI SINI
+        const API_URL = 'api.php'; 
+        
+        let asnDataList = [];
+        let deleteTargetId = null;
+
+        // Daftar Pangkat/Golongan PNS
+        const golonganPnsOptions = `
+            <option value="">-- Pilih Pangkat/Golongan PNS --</option>
+            <option value="-">-</option>
+            <optgroup label="Golongan IV (Pembina)">
+                <option value="Pembina Utama (IV/e)">Pembina Utama (IV/e)</option>
+                <option value="Pembina Utama Madya (IV/d)">Pembina Utama Madya (IV/d)</option>
+                <option value="Pembina Utama Muda (IV/c)">Pembina Utama Muda (IV/c)</option>
+                <option value="Pembina Tingkat I (IV/b)">Pembina Tingkat I (IV/b)</option>
+                <option value="Pembina (IV/a)">Pembina (IV/a)</option>
+            </optgroup>
+            <optgroup label="Golongan III (Penata)">
+                <option value="Penata Tingkat I (III/d)">Penata Tingkat I (III/d)</option>
+                <option value="Penata (III/c)">Penata (III/c)</option>
+                <option value="Penata Muda Tingkat I (III/b)">Penata Muda Tingkat I (III/b)</option>
+                <option value="Penata Muda (III/a)">Penata Muda (III/a)</option>
+            </optgroup>
+            <optgroup label="Golongan II (Pengatur)">
+                <option value="Pengatur Tingkat I (II/d)">Pengatur Tingkat I (II/d)</option>
+                <option value="Pengatur (II/c)">Pengatur (II/c)</option>
+                <option value="Pengatur Muda Tingkat I (II/b)">Pengatur Muda Tingkat I (II/b)</option>
+                <option value="Pengatur Muda (II/a)">Pengatur Muda (II/a)</option>
+            </optgroup>
+            <optgroup label="Golongan I (Juru)">
+                <option value="Juru Tingkat I (I/d)">Juru Tingkat I (I/d)</option>
+                <option value="Juru (I/c)">Juru (I/c)</option>
+                <option value="Juru Muda Tingkat I (I/b)">Juru Muda Tingkat I (I/b)</option>
+                <option value="Juru Muda (I/a)">Juru Muda (I/a)</option>
+            </optgroup>
+        `;
+
+        // Daftar Golongan PPPK 
+        const golonganPppkOptions = `
+            <option value="">-- Pilih Golongan PPPK --</option>
+            <option value="-">-</option>
+            <option value="Golongan XVII (PPPK)">Golongan XVII</option>
+            <option value="Golongan XVI (PPPK)">Golongan XVI</option>
+            <option value="Golongan XV (PPPK)">Golongan XV</option>
+            <option value="Golongan XIV (PPPK)">Golongan XIV</option>
+            <option value="Golongan XIII (PPPK)">Golongan XIII</option>
+            <option value="Golongan XII (PPPK)">Golongan XII</option>
+            <option value="Golongan XI (PPPK)">Golongan XI</option>
+            <option value="Golongan X (PPPK)">Golongan X</option>
+            <option value="Golongan IX (PPPK)">Golongan IX</option>
+            <option value="Golongan VIII (PPPK)">Golongan VIII</option>
+            <option value="Golongan VII (PPPK)">Golongan VII</option>
+            <option value="Golongan VI (PPPK)">Golongan VI</option>
+            <option value="Golongan V (PPPK)">Golongan V</option>
+            <option value="Golongan IV (PPPK)">Golongan IV</option>
+            <option value="Golongan III (PPPK)">Golongan III</option>
+            <option value="Golongan II (PPPK)">Golongan II</option>
+            <option value="Golongan I (PPPK)">Golongan I</option>
+        `;
+
+        function getRankWeight(golonganStr) {
+            if (!golonganStr) return 0;
+            const pnsWeights = {
+                "Pembina Utama (IV/e)": 45, "Pembina Utama Madya (IV/d)": 44, "Pembina Utama Muda (IV/c)": 43, "Pembina Tingkat I (IV/b)": 42, "Pembina (IV/a)": 41,
+                "Penata Tingkat I (III/d)": 34, "Penata (III/c)": 33, "Penata Muda Tingkat I (III/b)": 32, "Penata Muda (III/a)": 31,
+                "Pengatur Tingkat I (II/d)": 24, "Pengatur (II/c)": 23, "Pengatur Muda Tingkat I (II/b)": 22, "Pengatur Muda (II/a)": 21,
+                "Juru Tingkat I (I/d)": 14, "Juru (I/c)": 13, "Juru Muda Tingkat I (I/b)": 12, "Juru Muda (I/a)": 11
+            };
+            const pppkWeights = {
+                "Golongan XVII (PPPK)": 45, "Golongan XVI (PPPK)": 44, "Golongan XV (PPPK)": 43, "Golongan XIV (PPPK)": 42, "Golongan XIII (PPPK)": 41,
+                "Golongan XII (PPPK)": 34, "Golongan XI (PPPK)": 33, "Golongan X (PPPK)": 32, "Golongan IX (PPPK)": 31, "Golongan VIII (PPPK)": 24,
+                "Golongan VII (PPPK)": 23, "Golongan VI (PPPK)": 22, "Golongan V (PPPK)": 21,
+                "Golongan IV (PPPK)": 14, "Golongan III (PPPK)": 13, "Golongan II (PPPK)": 12, "Golongan I (PPPK)": 11
+            };
+            if (pnsWeights[golonganStr]) return pnsWeights[golonganStr];
+            if (pppkWeights[golonganStr]) return pppkWeights[golonganStr];
+            return 0;
+        }
+
+        function getJenisAsnWeight(jenisStr) {
+            if (jenisStr === 'PNS') return 3;
+            if (jenisStr === 'PPPK') return 2;
+            if (jenisStr === 'PPPK Paruh Waktu') return 1;
+            return 0;
+        }
+
+        function getSortedData(dataArray = asnDataList) {
+            return [...dataArray].sort((a, b) => {
+                const jenisWeightA = getJenisAsnWeight(a.jenis_asn);
+                const jenisWeightB = getJenisAsnWeight(b.jenis_asn);
+
+                if (jenisWeightA !== jenisWeightB) return jenisWeightB - jenisWeightA; 
+                
+                const weightA = getRankWeight(a.golongan);
+                const weightB = getRankWeight(b.golongan);
+                
+                if (weightB !== weightA) return weightB - weightA;
+                return a.nama.localeCompare(b.nama);
+            });
+        }
+
+        function getFilteredAndSortedData() {
+            const searchTerm = document.getElementById('filter-search').value.toLowerCase();
+            const filterJenis = document.getElementById('filter-jenis').value;
+            const filterBagian = document.getElementById('filter-bagian').value;
+
+            const filteredData = asnDataList.filter(item => {
+                const matchSearch = item.nama.toLowerCase().includes(searchTerm) ||
+                                    item.nip.toLowerCase().includes(searchTerm) ||
+                                    item.jabatan.toLowerCase().includes(searchTerm);
+                
+                const matchJenis = filterJenis === "" || item.jenis_asn === filterJenis;
+                const matchBagian = filterBagian === "" || item.bagian === filterBagian;
+
+                return matchSearch && matchJenis && matchBagian;
+            });
+
+            return getSortedData(filteredData);
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-search').value = '';
+            document.getElementById('filter-jenis').value = '';
+            document.getElementById('filter-bagian').value = '';
+            renderTable();
+        }
+
+        function setupFilterListeners() {
+            document.getElementById('filter-search').addEventListener('input', renderTable);
+            document.getElementById('filter-jenis').addEventListener('change', renderTable);
+            document.getElementById('filter-bagian').addEventListener('change', renderTable);
+        }
+
+        function handleJenisAsnChange(selectedGolongan = '') {
+            const jenisAsn = document.getElementById('jenis_asn').value;
+            const golonganSelect = document.getElementById('golongan');
+            const labelNip = document.getElementById('label-nip');
+            const inputNip = document.getElementById('nip');
+
+            if (jenisAsn === 'PNS') {
+                labelNip.innerText = 'NIP (Nomor Induk Pegawai)';
+                inputNip.placeholder = '18 digit angka (Cth: 19850101...)';
+                golonganSelect.innerHTML = golonganPnsOptions;
+            } else if (jenisAsn === 'PPPK' || jenisAsn === 'PPPK Paruh Waktu') {
+                labelNip.innerText = 'NI PPPK (Nomor Induk PPPK)';
+                inputNip.placeholder = 'Nomor Induk PPPK';
+                golonganSelect.innerHTML = golonganPppkOptions;
+            } else {
+                labelNip.innerText = 'NIP / Nomor Induk';
+                inputNip.placeholder = 'Nomor Induk';
+                golonganSelect.innerHTML = '<option value="">-- Pilih Jenis ASN Terlebih Dahulu --</option>';
+            }
+            if (selectedGolongan) golonganSelect.value = selectedGolongan;
+        }
+
+        // FUNGSI BARU: Ambil data dari API (Backend PHP)
+        async function loadDataFromAPI() {
+            const loading = document.getElementById('loading-indicator');
+            loading.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                asnDataList = data;
+            } catch (error) {
+                console.error("Gagal mengambil data dari server:", error);
+                showToast("Koneksi ke database gagal. Pastikan server lokal berjalan.", "error");
+                asnDataList = [];
+            } finally {
+                loading.classList.add('hidden');
+                renderTable();
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgColor, icon;
+            if (type === 'success') { bgColor = 'bg-emerald-600'; icon = 'fa-check-circle'; } 
+            else if (type === 'error') { bgColor = 'bg-red-600'; icon = 'fa-circle-xmark'; } 
+            else if (type === 'warning') { bgColor = 'bg-amber-500'; icon = 'fa-triangle-exclamation'; } 
+            else { bgColor = 'bg-blue-600'; icon = 'fa-info-circle'; }
+
+            toast.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 pointer-events-auto max-w-sm w-full`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-lg"></i>
+                <span class="text-sm font-medium flex-1">${message}</span>
+                <button onclick="this.parentElement.remove()" class="text-white hover:text-gray-200">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-x-full', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const loginView = document.getElementById('login-view');
+        const dashboardView = document.getElementById('dashboard-view');
+
+        function showDashboard() {
+            loginView.classList.add('hidden');
+            loginView.classList.remove('flex');
+            dashboardView.classList.remove('hidden');
+            dashboardView.classList.add('flex');
+            
+            setupFilterListeners(); 
+            loadDataFromAPI(); // Load data dari MySQL
+        }
+
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+
+            if (user === 'admin' && pass === 'umumtangguh') {
+                loginError.classList.add('hidden');
+                localStorage.setItem(SESSION_KEY, 'true');
+                showDashboard();
+                showToast('Login berhasil! Selamat datang Admin.', 'success');
+            } else {
+                loginError.classList.remove('hidden');
+                loginForm.classList.add('animate-pulse');
+                setTimeout(() => loginForm.classList.remove('animate-pulse'), 500);
+            }
+        });
+
+        function handleLogout() {
+            localStorage.removeItem(SESSION_KEY);
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            dashboardView.classList.add('hidden');
+            dashboardView.classList.remove('flex');
+            loginView.classList.remove('hidden');
+            loginView.classList.add('flex');
+            showToast('Anda telah keluar dari sistem.', 'info');
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            const emptyState = document.getElementById('empty-state');
+            const emptyTitle = document.getElementById('empty-title');
+            const emptyDesc = document.getElementById('empty-desc');
+            const table = document.querySelector('.table-container table');
+
+            tbody.innerHTML = '';
+            const displayList = getFilteredAndSortedData();
+
+            if (displayList.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                table.parentElement.classList.add('hidden');
+                
+                if (asnDataList.length === 0) {
+                    emptyTitle.innerText = "Belum ada data";
+                    emptyDesc.innerText = "Data ASN kosong. Silakan klik tombol 'Tambah ASN' untuk mulai menambahkan data.";
+                } else {
+                    emptyTitle.innerText = "Data tidak ditemukan";
+                    emptyDesc.innerText = "Tidak ada pegawai yang cocok dengan kriteria filter/pencarian Anda.";
+                }
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+                table.parentElement.classList.remove('hidden');
+
+                displayList.forEach((asn, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-blue-50 transition-colors duration-150 group';
+                    
+                    let jenisBadge = '';
+                    if (asn.jenis_asn === 'PPPK Paruh Waktu') {
+                        jenisBadge = '<span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs font-bold border border-amber-200">PPPK Paruh Waktu</span>';
+                    } else if (asn.jenis_asn === 'PPPK') {
+                        jenisBadge = '<span class="bg-purple-100 text-purple-800 px-2.5 py-1 rounded-md text-xs font-bold border border-purple-200">PPPK</span>';
+                    } else {
+                        jenisBadge = '<span class="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-md text-xs font-bold border border-blue-200">PNS</span>';
+                    }
+
+                    tr.innerHTML = `
+                        <td class="p-4 text-center text-gray-500">${index + 1}</td>
+                        <td class="p-4 font-medium text-gray-900">${asn.nama}</td>
+                        <td class="p-4 text-gray-600 font-mono text-sm">${asn.nip}</td>
+                        <td class="p-4">${jenisBadge}</td>
+                        <td class="p-4 text-gray-600">
+                            <span class="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-gray-200">
+                                ${asn.golongan}
+                            </span>
+                        </td>
+                        <td class="p-4 text-gray-600">${asn.jabatan}</td>
+                        <td class="p-4 text-gray-600">
+                            <span class="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 px-2 py-1 rounded text-xs font-medium">
+                                <i class="fa-solid fa-layer-group text-[10px]"></i>
+                                ${asn.bagian}
+                            </span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="editData(${asn.id})" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-2 rounded-md transition-colors" title="Edit Data">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                <button onclick="confirmDelete(${asn.id})" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-md transition-colors" title="Hapus Data">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        const formModal = document.getElementById('form-modal');
+        const asnForm = document.getElementById('asn-form');
+        const modalTitle = document.getElementById('modal-title');
+        const deleteModal = document.getElementById('delete-modal');
+
+        function openModal() {
+            asnForm.reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('jenis_asn').value = '';
+            document.getElementById('golongan').innerHTML = '<option value="">-- Pilih Jenis ASN Terlebih Dahulu --</option>';
+            modalTitle.innerText = 'Tambah Data ASN';
+            
+            formModal.classList.remove('hidden');
+            setTimeout(() => {
+                formModal.firstElementChild.classList.add('scale-100', 'opacity-100');
+                formModal.firstElementChild.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        }
+
+        function closeModal() {
+            formModal.firstElementChild.classList.add('scale-95', 'opacity-0');
+            formModal.firstElementChild.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => { formModal.classList.add('hidden'); }, 300);
+        }
+
+        function editData(id) {
+            const data = asnDataList.find(item => item.id === id);
+            if (data) {
+                document.getElementById('edit-id').value = data.id;
+                document.getElementById('nama').value = data.nama;
+                document.getElementById('nip').value = data.nip;
+                document.getElementById('jenis_asn').value = data.jenis_asn || 'PNS';
+                handleJenisAsnChange(data.golongan);
+                document.getElementById('jabatan').value = data.jabatan;
+                document.getElementById('bagian').value = data.bagian;
+                
+                modalTitle.innerText = 'Edit Data ASN';
+                formModal.classList.remove('hidden');
+                setTimeout(() => {
+                    formModal.firstElementChild.classList.add('scale-100', 'opacity-100');
+                    formModal.firstElementChild.classList.remove('scale-95', 'opacity-0');
+                }, 10);
+            }
+        }
+
+        // FUNGSI BARU: Simpan data ke API (Backend PHP)
+        async function saveData() {
+            if (!asnForm.checkValidity()) {
+                asnForm.reportValidity();
+                return;
+            }
+
+            const btnSimpan = document.getElementById('btn-simpan');
+            btnSimpan.disabled = true;
+            btnSimpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+
+            const id = document.getElementById('edit-id').value;
+            const payload = {
+                action: id ? 'update' : 'create',
+                id: id,
+                nama: document.getElementById('nama').value,
+                nip: document.getElementById('nip').value,
+                jenis_asn: document.getElementById('jenis_asn').value,
+                golongan: document.getElementById('golongan').value,
+                jabatan: document.getElementById('jabatan').value,
+                bagian: document.getElementById('bagian').value
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json' // Tambahkan Accept header
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                // Coba parse text dulu, jangan langsung .json() 
+                // untuk melihat error PHP (seperti Fatal Error / Warning)
+                const textResult = await response.text(); 
+                
+                let result;
+                try {
+                    result = JSON.parse(textResult);
+                } catch (e) {
+                    console.error("Server tidak merespon dengan JSON:", textResult);
+                    showToast('Error Server: Lihat console (F12) untuk detail', 'error');
+                    return;
+                }
+                
+                if (result.success) {
+                    showToast(id ? 'Data ASN berhasil diperbarui.' : 'Data ASN baru berhasil ditambahkan.', 'success');
+                    closeModal();
+                    await loadDataFromAPI(); // Refresh tabel setelah insert/update
+                } else {
+                    showToast('Gagal menyimpan data: ' + (result.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error("Gagal mengirim data:", error);
+                showToast("Terjadi kesalahan jaringan/server.", "error");
+            } finally {
+                btnSimpan.disabled = false;
+                btnSimpan.innerHTML = '<i class="fa-solid fa-save"></i> Simpan';
+            }
+        }
+
+        function confirmDelete(id) {
+            deleteTargetId = id;
+            deleteModal.classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            deleteTargetId = null;
+            deleteModal.classList.add('hidden');
+        }
+
+        // FUNGSI BARU: Hapus data via API (Backend PHP)
+        document.getElementById('confirm-delete-btn').addEventListener('click', async function() {
+            if (deleteTargetId !== null) {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghapus...';
+
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'delete', id: deleteTargetId })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast('Data ASN berhasil dihapus.', 'success');
+                        closeDeleteModal();
+                        await loadDataFromAPI(); // Refresh tabel
+                    } else {
+                        showToast('Gagal menghapus data: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    showToast('Terjadi kesalahan saat menghapus data.', 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            }
+        });
+
+        function exportToExcel() {
+            const displayList = getFilteredAndSortedData();
+            if (displayList.length === 0) {
+                showToast('Tidak ada data yang tersedia untuk diunduh.', 'warning');
+                return;
+            }
+
+            showToast('Mempersiapkan file Excel...', 'info');
+            
+            const excelData = displayList.map((item, index) => ({
+                "No": index + 1,
+                "Nama Lengkap": item.nama,
+                "NIP / NI PPPK": item.nip,
+                "Jenis ASN": item.jenis_asn || 'PNS',
+                "Pangkat/Golongan": item.golongan,
+                "Jabatan": item.jabatan,
+                "Unit Kerja/Bagian": item.bagian
+            }));
+
+            try {
+                const worksheet = XLSX.utils.json_to_sheet(excelData);
+                const wscols = [{wch: 5}, {wch: 35}, {wch: 25}, {wch: 20}, {wch: 25}, {wch: 35}, {wch: 40}];
+                worksheet['!cols'] = wscols;
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Data ASN");
+
+                const dateObj = new Date();
+                const dateStr = `${dateObj.getFullYear()}${(dateObj.getMonth()+1).toString().padStart(2, '0')}${dateObj.getDate().toString().padStart(2, '0')}`;
+                const isFiltered = asnDataList.length !== displayList.length;
+                const filename = `Data_ASN_Setda${isFiltered ? '_Filtered' : ''}_${dateStr}.xlsx`;
+
+                XLSX.writeFile(workbook, filename);
+                setTimeout(() => { showToast('File Excel berhasil diunduh!', 'success'); }, 500);
+            } catch (error) {
+                showToast('Terjadi kesalahan saat mengekspor.', 'error');
+            }
+        }
+
+        window.onload = function() {
+            const isLoggedIn = localStorage.getItem(SESSION_KEY);
+            if (isLoggedIn === 'true') {
+                showDashboard();
+            }
+        };
+    </script>
+</body>
+</html>
